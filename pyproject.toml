@@ -1,0 +1,14 @@
+[project]
+name = "travelling"
+version = "0.2.0"
+description = "Google Maps-style delivery route optimizer with Contraction Hierarchies (OSRM) + GA TSP"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.1.0",
+    "flask-cors>=6.0.0",
+    "geopy>=2.4.1",
+    "requests>=2.34.2",
+    "python-dotenv>=1.0.1",
+    "dotenv>=0.9.9",
+]

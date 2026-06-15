@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Route Optimizer — Premium CH &amp; GA Dashboard</title>
+  <meta name="description" content="Google Maps-style delivery route optimizer powered by Contraction Hierarchies (OSRM) and Genetic Algorithm TSP." />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <!-- Our styles -->
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!--  SIDEBAR                                   -->
+  <!-- ══════════════════════════════════════════ -->
+  <aside id="sidebar">
+
+    <!-- Header -->
+    <div id="sidebar-header">
+      <div class="logo-row">
+        <div class="logo-icon">🧭</div>
+        <div style="flex: 1;">
+          <h1>Route Optimizer</h1>
+          <p class="subtitle">Contraction Hierarchies · GA TSP</p>
+        </div>
+        <button id="collapse-sidebar-btn" class="collapse-sidebar-btn" title="Collapse sidebar">◀</button>
+      </div>
+    </div>
+
+    <!-- Input Panel -->
+    <div id="input-panel">
+
+      <!-- My Location Banner -->
+      <div id="my-location-banner">
+        <div class="my-loc-left">
+          <span class="my-loc-dot" id="my-loc-dot"></span>
+          <div>
+            <div class="my-loc-title">Start from my location</div>
+            <div class="my-loc-sub" id="my-loc-sub">Route: You → Warehouse → Stops</div>
+          </div>
+        </div>
+        <label class="toggle-switch" title="Use GPS as route start">
+          <input type="checkbox" id="use-my-location-toggle" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+
+      <!-- Warehouse -->
+      <div class="field-group">
+        <label class="field-label">
+          <span class="field-icon warehouse-icon">🏭</span>
+          Warehouse / Start
+        </label>
+        <div class="ac-wrapper">
+          <div class="search-row">
+            <input id="warehouse-input" class="search-input" type="text"
+                   placeholder="e.g. Sector 60 Chandigarh"
+                   autocomplete="off" />
+            <button id="warehouse-geo-btn" class="icon-btn" title="Use my location">📍</button>
+          </div>
+          <ul class="ac-dropdown" id="ac-warehouse"></ul>
+        </div>
+        <div id="warehouse-result" class="geo-result hidden"></div>
+      </div>
+
+      <!-- Stops -->
+      <div class="field-group stops-field-group">
+        <label class="field-label">
+          <span class="field-icon">📦</span>
+          Delivery Stops
+        </label>
+        <div id="stops-container"></div>
+        <button id="add-stop-btn" class="add-stop-btn">
+          <span>＋</span> Add Stop
+        </button>
+      </div>
+
+      <!-- Actions -->
+      <div class="action-row">
+        <button id="optimize-btn" class="btn-primary" disabled>
+          <span class="btn-icon">⚡</span>
+          Optimize Route
+        </button>
+        <button id="clear-btn" class="btn-ghost">Clear</button>
+      </div>
+
+    </div>
+
+    <!-- Results Panel (shown after routing) -->
+    <div id="results-panel" class="hidden">
+      <div class="results-header">
+        <div class="stat-chips">
+          <div class="stat-chip">
+            <div class="stat-value" id="stat-stops">—</div>
+            <div class="stat-label">Stops</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-value" id="stat-dist">—</div>
+            <div class="stat-label">km</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-value" id="stat-time">—</div>
+            <div class="stat-label">hrs est.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="stop-list"></div>
+
+      <div class="results-actions">
+        <button id="add-mid-route-btn" class="btn-outline">
+          <span>＋</span> Add Stop &amp; Reroute
+        </button>
+        <button id="nav-btn" class="btn-gps">
+          <span>📍</span> Start Navigation
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading" class="hidden">
+      <div class="radar-loader"></div>
+      <p id="loading-text">Computing optimal route…</p>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!--  MAP                                       -->
+  <!-- ══════════════════════════════════════════ -->
+  <div id="map-container">
+    <div id="map"></div>
+
+    <button id="expand-sidebar-btn" class="map-ctrl-btn hidden" title="Expand sidebar">▶</button>
+
+    <!-- GPS Navigation Bar (shown during navigation) -->
+    <div id="nav-bar" class="hidden">
+      <div id="nav-info">
+        <div id="nav-next-label">Next stop</div>
+        <div id="nav-next-name">—</div>
+      </div>
+      <div id="nav-stats">
+        <div class="nav-stat">
+          <div id="nav-dist-val">—</div>
+          <div class="nav-stat-label">km away</div>
+        </div>
+        <div class="nav-stat">
+          <div id="nav-speed-val">—</div>
+          <div class="nav-stat-label">km/h</div>
+        </div>
+      </div>
+      <div id="nav-controls">
+        <button id="sim-btn" class="btn-sim">▶ Simulate</button>
+        <button id="stop-nav-btn" class="btn-stop-nav">✕ End</button>
+      </div>
+    </div>
+
+    <!-- Map top-right controls -->
+    <div id="map-controls">
+      <button id="fit-btn" class="map-ctrl-btn" title="Fit route">⊞</button>
+      <button id="toggle-dark-btn" class="map-ctrl-btn" title="Toggle map style">🌙</button>
+    </div>
+  </div>
+
+  <!-- Modals / toasts -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Route Mode Modal -->
+  <div id="route-mode-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-icon">📍</span>
+        <h2 class="modal-title">Choose Route Mode</h2>
+        <p class="modal-sub">How should the route start from your location?</p>
+      </div>
+      <div class="modal-options">
+        <label class="modal-option" id="opt-warehouse-stops">
+          <input type="radio" name="route-mode" value="warehouse_then_stops" checked />
+          <div class="modal-option-content">
+            <div class="modal-option-icon">🏭➡️📦</div>
+            <div>
+              <div class="modal-option-title">To Warehouse + Stops</div>
+              <div class="modal-option-desc">You → Warehouse → Optimised Stops</div>
+            </div>
+          </div>
+        </label>
+        <label class="modal-option" id="opt-stops-only">
+          <input type="radio" name="route-mode" value="stops_only" />
+          <div class="modal-option-content">
+            <div class="modal-option-icon">📍➡️📦</div>
+            <div>
+              <div class="modal-option-title">To Stops Only</div>
+              <div class="modal-option-desc">You → Optimised Stops (skip warehouse)</div>
+            </div>
+          </div>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="route-mode-cancel" class="btn-ghost">Cancel</button>
+        <button id="route-mode-confirm" class="btn-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <!-- Our app -->
+  <script src="/static/app.js"></script>
+</body>
+</html>
