@@ -78,6 +78,13 @@ def _build_trie() -> None:
               f"from {len(rows)} cached location(s)")
     else:
         print("  Trie: empty — will grow as locations are geocoded")
+# Run database initialization and trie-building at startup (important for Gunicorn/production)
+cache_db.init_db()
+migrated = cache_db.migrate_legacy_db()
+if migrated:
+    print(f"  Migration: imported {migrated} location(s) from legacy route_cache.db")
+cache_db.purge_expired_locations()
+_build_trie()
 
 
 # ─────────────────────────────────────────────
@@ -437,20 +444,11 @@ def snap_route_endpoint():
 # ─────────────────────────────────────────────
 
 if __name__ == "__main__":
-    cache_db.init_db()
-
-    # One-time migration: import legacy route_cache.db locations
-    migrated = cache_db.migrate_legacy_db()
-    if migrated:
-        print(f"  Migration: imported {migrated} location(s) from legacy route_cache.db")
-
-    cache_db.purge_expired_locations()   # remove entries older than 30 days
-    _build_trie()                         # populate in-memory Trie from SQLite
-
     print("\n" + "=" * 54)
     print("  Route Optimizer — Google Maps Style UI")
     print("  Geocoder : Mapbox (30-day TTL cache)")
     print("  Suggest  : Trie → Photon fallback")
-    print("  Open http://localhost:5000 in your browser")
     print("=" * 54 + "\n")
-    app.run(debug=True, port=5000, use_reloader=False)
+    
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)
